@@ -8,16 +8,12 @@ export interface User {
     email: string;
 }
 
-export interface Tokens {
-    accessToken: string;
-    refreshToken: string;
-}
-
 interface AuthState {
     user: User | null;
-    tokens: Tokens | null;
+    accessToken: string | null;
     isAuthenticated: boolean;
-    setAuth: (user: User, tokens: Tokens) => void;
+    setAuth: (user: User, accessToken: string) => void;
+    setAccessToken: (accessToken: string) => void;
     logout: () => void;
 }
 
@@ -25,14 +21,19 @@ export const useAuthStore = create<AuthState>()(
     persist(
         (set) => ({
             user: null,
-            tokens: null,
+            accessToken: null,
             isAuthenticated: false,
-            setAuth: (user, tokens) => set({ user, tokens, isAuthenticated: true }),
-            logout: () => set({ user: null, tokens: null, isAuthenticated: false }),
+            setAuth: (user, accessToken) => set({ user, accessToken, isAuthenticated: true }),
+            setAccessToken: (accessToken) => set({ accessToken }),
+            logout: () => set({ user: null, accessToken: null, isAuthenticated: false }),
         }),
         {
             name: 'auth-storage', // unique name for localStorage key
             storage: createJSONStorage(() => localStorage),
+            partialize: (state) => ({ 
+                user: state.user, 
+                isAuthenticated: state.isAuthenticated 
+            }), // Omit accessToken so it stays in-memory
         }
     )
 );

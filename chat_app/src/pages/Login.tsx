@@ -24,7 +24,7 @@ export default function Login() {
       const { user, token } = response.data;
       
       // Save to global state
-      setAuth(user, token);
+      setAuth(user, token.accessToken);
       
       console.log('Login successful:', response.data);
       navigate('/dashboard');
