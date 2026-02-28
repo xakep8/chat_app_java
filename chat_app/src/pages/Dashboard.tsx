@@ -1,8 +1,19 @@
 import { useAuthStore } from '../store/useAuthStore';
 import { LogOut, MessageSquare, Users, Settings } from 'lucide-react';
+import api from '../api/axios';
 
 export default function Dashboard() {
   const { user, logout } = useAuthStore();
+
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (error) {
+      console.error('Logout failed on backend:', error);
+    } finally {
+      logout(); // Always clear local state even if backend fails
+    }
+  };
 
   return (
     <div className="flex h-screen w-screen bg-slate-900 overflow-hidden">
@@ -38,7 +49,7 @@ export default function Dashboard() {
               <span className="text-xs text-emerald-500 flex items-center gap-1 before:content-[''] before:w-1.5 before:h-1.5 before:rounded-full before:bg-emerald-500">Online</span>
             </div>
           </div>
-          <button onClick={logout} className="bg-transparent border-none text-slate-500 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:text-red-500 hover:bg-red-500/10 shadow-none hover:shadow-none hover:translate-y-0" aria-label="Logout">
+          <button onClick={handleLogout} className="bg-transparent border-none text-slate-500 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:text-red-500 hover:bg-red-500/10 shadow-none hover:shadow-none hover:translate-y-0" aria-label="Logout">
             <LogOut size={20} />
           </button>
         </div>
