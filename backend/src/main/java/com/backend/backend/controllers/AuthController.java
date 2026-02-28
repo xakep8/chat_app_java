@@ -116,8 +116,22 @@ public class AuthController {
         if(!jwtUtil.isTokenValid(refreshToken)){
             return ResponseEntity.badRequest().body("Token is expired");
         }
-        String accessToken = jwtUtil.generateAccessToken(jwtUtil.getUserIdLong(refreshToken));
-        return ResponseEntity.ok(new LoginResponse.TokenDto(accessToken, null));
+        
+        Long userId = jwtUtil.getUserIdLong(refreshToken);
+        String accessToken = jwtUtil.generateAccessToken(userId);
+        
+        User user = userRepository.findById(userId).orElseThrow(()->new RuntimeException("User not found"));
+        
+        LoginResponse.UserDto userDto = new LoginResponse.UserDto(
+                user.getId(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getEmail()
+        );
+        
+        LoginResponse.TokenDto token = new LoginResponse.TokenDto(accessToken, null);
+        
+        return ResponseEntity.ok(new LoginResponse(token, userDto));
     }
 
     @PostMapping("/logout")

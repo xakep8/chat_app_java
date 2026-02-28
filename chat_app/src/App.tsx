@@ -10,25 +10,32 @@ import api from './api/axios';
 
 function App() {
   const [isInitializing, setIsInitializing] = useState(true);
-  const { isAuthenticated, accessToken, setAccessToken, logout } = useAuthStore();
+  const { isAuthenticated, accessToken, setAuth, logout } = useAuthStore();
 
   useEffect(() => {
     const initializeAuth = async () => {
-      // If we think we are authenticated but have no access token in memory (e.g. page refresh)
-      if (isAuthenticated && !accessToken) {
+      // Try to silently refresh on load if we don't have an access token in memory.
+      // This handles both page refreshes (where localStorage isAuthenticated is true) 
+      // AND cases where localStorage was cleared but the HttpOnly cookie still exists.
+      if (!accessToken) {
         try {
           const response = await api.post('/auth/refresh');
-          setAccessToken(response.data.accessToken);
+          // If successful, we have a valid cookie. Update token and auth state.
+          // Now the backend returns the user object as well!
+          const { user, token } = response.data;
+          setAuth(user, token.accessToken);
         } catch (error) {
-          console.error('Silent refresh failed:', error);
-          logout(); // Refresh token expired or missing
+          console.log('Silent refresh failed. User needs to login.', error); // Intentionally not logging out if they weren't authenticated anyway
+          if (isAuthenticated) {
+              logout(); // Only logout (clear localStorage) if we thought they were authenticated
+          }
         }
       }
       setIsInitializing(false);
     };
 
     initializeAuth();
-  }, [isAuthenticated, accessToken, setAccessToken, logout]);
+  }, [isAuthenticated, accessToken, setAuth, logout]);
 
   if (isInitializing) {
     return (
@@ -41,8 +48,8 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />} />
+        <Route path="/signup" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Signup />} />
         
         {/* Protected Routes */}
         <Route element={<AuthRoute />}>
