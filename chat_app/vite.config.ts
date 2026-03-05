@@ -8,11 +8,35 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   return {
+    define: {
+      global: 'window',
+    },
     plugins: [react()],
     server: {
       proxy: {
         '/auth': {
           target: env.VITE_API_ENDPOINT || 'http://localhost:8080',
+          changeOrigin: true,
+          secure: false,
+        },
+        '/users': {
+          target: env.VITE_API_ENDPOINT || 'http://localhost:8080',
+          changeOrigin: true,
+          secure: false,
+        },
+        '/chats': {
+          target: env.VITE_API_ENDPOINT || 'http://localhost:8080',
+          changeOrigin: true,
+          secure: false,
+        },
+        '/messages': {
+          target: env.VITE_API_ENDPOINT || 'http://localhost:8080',
+          changeOrigin: true,
+          secure: false,
+        },
+        '/ws': {
+          target: env.VITE_API_ENDPOINT || 'http://localhost:8080',
+          ws: true,
           changeOrigin: true,
           secure: false,
         }

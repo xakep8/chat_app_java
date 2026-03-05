@@ -3,10 +3,11 @@ import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
-import Dashboard from './pages/Dashboard';
+import Messages from './pages/Messages';
 import AuthRoute from './components/AuthRoute';
 import { useAuthStore } from './store/useAuthStore';
 import api from './api/axios';
+import { Toaster } from 'sonner';
 
 function App() {
   const [isInitializing, setIsInitializing] = useState(true);
@@ -53,13 +54,14 @@ function App() {
         
         {/* Protected Routes */}
         <Route element={<AuthRoute />}>
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Messages />} />
         </Route>
 
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         {/* Fallback route */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
+      <Toaster position="bottom-left" theme="dark" richColors />
     </Router>
   );
 }

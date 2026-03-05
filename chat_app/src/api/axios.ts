@@ -18,6 +18,10 @@ api.interceptors.request.use(
 
         if (accessToken) {
             config.headers['Authorization'] = `Bearer ${accessToken}`;
+            const maskedToken = `${accessToken.substring(0, 5)}...${accessToken.substring(accessToken.length - 5)}`;
+            console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url} - Token attached: ${maskedToken}`);
+        } else {
+            console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url} - No Access Token in store`);
         }
 
         return config;
@@ -37,6 +41,7 @@ api.interceptors.response.use(
 
         // If we receive a 401 and haven't retried yet
         if (error.response && error.response.status === 401 && !originalRequest._retry) {
+            console.warn(`[API 401] ${originalRequest.method?.toUpperCase()} ${originalRequest.url} returned 401. Data:`, error.response.data);
             originalRequest._retry = true;
 
             // Prevent infinite loops if the refresh endpoint itself returns 401
@@ -48,17 +53,19 @@ api.interceptors.response.use(
             try {
                 // Attempt to refresh the token using the HttpOnly cookie
                 const response = await api.post('/auth/refresh');
-                const newAccessToken = response.data.accessToken;
+                const newAccessToken = response.data.token.accessToken;
 
                 // Update Zustand store
                 useAuthStore.getState().setAccessToken(newAccessToken);
 
                 // Retry the original request
                 originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+                const maskedToken = `${newAccessToken.substring(0, 5)}...${newAccessToken.substring(newAccessToken.length - 5)}`;
+                console.log(`[API Retry] Retrying ${originalRequest.url} with new token: ${maskedToken}`);
                 return api(originalRequest);
-            } catch (refreshError) {
+            } catch (refreshError: any) {
                 // Refresh failed (cookie expired, missing, etc.)
-                console.warn('Unauthorized and refresh failed. Logging out...');
+                console.error('[API Refresh Failed] Logging out...', refreshError.response?.data || refreshError.message);
                 useAuthStore.getState().logout();
                 return Promise.reject(refreshError);
             }
