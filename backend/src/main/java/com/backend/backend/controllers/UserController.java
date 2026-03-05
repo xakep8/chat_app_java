@@ -20,15 +20,18 @@ public class UserController {
     private final UserRepository userRepository;
 
     @GetMapping("/search")
-    public ResponseEntity<List<UserDto>> searchUsers(@RequestParam String query, Principal principal) {
+    public ResponseEntity<List<UserDto>> searchUsers(@RequestParam(required = false, defaultValue = "") String query, Principal principal) {
         User currentUser = (User) ((UsernamePasswordAuthenticationToken) principal).getPrincipal();
+        
+        List<User> usersList;
         if (query == null || query.trim().isEmpty()) {
-            return ResponseEntity.ok(List.of());
+            usersList = userRepository.findAll();
+        } else {
+            usersList = userRepository.findAllByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
+                    query, query, query);
         }
 
-        List<UserDto> users = userRepository.findAllByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
-                query, query, query)
-                .stream()
+        List<UserDto> users = usersList.stream()
                 .filter(user -> !user.getId().equals(currentUser.getId())) // Exclude current user
                 .map(user -> UserDto.builder()
                         .id(user.getId())

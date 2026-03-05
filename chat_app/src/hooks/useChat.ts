@@ -81,9 +81,16 @@ export const useChat = (chatId: number | null) => {
                 console.log('%cSTOMP: Message RECEIVED:', 'color: #00ff00; font-weight: bold', receivedMessage);
 
                 setMessages((prev) => {
-                    // Prevent duplicates (local echo vs server broadcast)
-                    const isDuplicate = prev.some(m => m.id === receivedMessage.id);
-                    if (isDuplicate) {
+                    const existingMsgIndex = prev.findIndex(m => m.id === receivedMessage.id);
+                    if (existingMsgIndex !== -1) {
+                        // Message exists. Update it if status changed (e.g. to READ)
+                        const existingMsg = prev[existingMsgIndex];
+                        if (existingMsg.status !== receivedMessage.status) {
+                            console.log(`STOMP: Updating message ${receivedMessage.id} status to ${receivedMessage.status}`);
+                            const newMessages = [...prev];
+                            newMessages[existingMsgIndex] = receivedMessage;
+                            return newMessages;
+                        }
                         console.log('STOMP: Ignored duplicate message:', receivedMessage.id);
                         return prev;
                     }
@@ -91,8 +98,16 @@ export const useChat = (chatId: number | null) => {
                     return [...prev, receivedMessage];
                 });
 
-                // Notify if message is from someone else
-                if (receivedMessage.senderId !== user?.id) {
+                // Notify only if it's a completely NEW message from someone else.
+                // If it's a completely new message from someone else, we show the toast.
+                // Status updates (like someone reading our message) won't trigger this 
+                // because the senderId will be our own ID in that case, or if it's from 
+                // them, the backend should ideally send READ status initially if they are active,
+                // but realistically we just want to avoid toast spam for status updates.
+                // In reality, if they read our message, it's our message being updated.
+                // If they send us a message, status is SENT.
+                // We'll safely assume SENT status = new message for toast purposes.
+                if (receivedMessage.senderId !== user?.id && receivedMessage.status === 'SENT') {
                     toast.message('New message', {
                         description: `[${receivedMessage.senderName}]: ${receivedMessage.message}`,
                         duration: 3000,
@@ -128,5 +143,18 @@ export const useChat = (chatId: number | null) => {
         }
     };
 
-    return { messages, setMessages, isConnected, sendMessage };
+    const markMessageAsRead = (messageId: number) => {
+        if (stompClient.current && isConnected && chatId) {
+            console.log(`[useChat] Marking message ${messageId} as READ`);
+            stompClient.current.publish({
+                destination: '/app/chat.updateStatus',
+                body: JSON.stringify({
+                    messageId: messageId,
+                    status: 'READ',
+                }),
+            });
+        }
+    };
+
+    return { messages, setMessages, isConnected, sendMessage, markMessageAsRead };
 };
