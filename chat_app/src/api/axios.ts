@@ -3,7 +3,7 @@ import { useAuthStore } from '../store/useAuthStore';
 
 // Create an Axios instance
 const api = axios.create({
-    baseURL: '', // The Vite proxy will handle forwarding to VITE_API_ENDPOINT
+    baseURL: import.meta.env.VITE_API_ENDPOINT, // The Vite proxy will handle forwarding to VITE_API_ENDPOINT
     headers: {
         'Content-Type': 'application/json',
     },
