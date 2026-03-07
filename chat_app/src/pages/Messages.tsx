@@ -12,7 +12,8 @@ import {
   Send,
   Plus,
   Circle,
-  Loader2
+  Loader2,
+  ArrowLeft
 } from 'lucide-react';
 import api from '../api/axios';
 import { useChat } from '../hooks/useChat';
@@ -215,15 +216,15 @@ export default function Messages() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-slate-950 text-slate-200 overflow-hidden font-sans">
+    <div className="flex h-[100dvh] w-screen bg-slate-950 text-slate-200 overflow-hidden font-sans">
       
-      {/* 1. Global Navigation Vertical Sidebar */}
-      <aside className="w-[80px] bg-slate-900/50 backdrop-blur-xl border-r border-white/5 flex flex-col items-center py-8 gap-8 transition-all duration-300">
-        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.4)] hover:scale-105 transition-transform cursor-pointer">
+      {/* 1. Global Navigation Vertical Sidebar (Bottom Nav on Mobile) */}
+      <aside className={`md:relative md:w-[80px] md:h-auto md:flex-col fixed bottom-0 z-50 w-full h-16 flex-row justify-around md:justify-start items-center md:py-8 bg-slate-900/50 backdrop-blur-xl border-t md:border-t-0 md:border-r border-white/5 md:gap-8 transition-all duration-300 ${selectedChatId ? 'hidden md:flex' : 'flex'}`}>
+        <div className="hidden md:flex w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.4)] hover:scale-105 transition-transform cursor-pointer">
           <div className="w-5 h-5 bg-white rounded-sm opacity-20"></div>
         </div>
         
-        <nav className="flex flex-col gap-4 flex-1">
+        <nav className="flex flex-row md:flex-col gap-2 md:gap-4 flex-1 items-center justify-center md:justify-start">
           <button 
             onClick={() => setCurrentView('messages')}
             className={`p-3 rounded-xl group relative transition-all ${
@@ -254,13 +255,13 @@ export default function Messages() {
 
         <button onClick={handleLogout} className="p-3 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all group relative">
           <LogOut size={24} />
-          <span className="absolute left-full ml-4 px-2 py-1 bg-red-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">Logout</span>
+          <span className="hidden md:block absolute left-full ml-4 px-2 py-1 bg-red-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">Logout</span>
         </button>
       </aside>
 
       {/* 2. Dynamic Sidebar (Chats or Contacts) */}
-      <section className="w-[320px] md:w-[380px] bg-slate-900/30 border-r border-white/5 flex flex-col">
-        <header className="p-6 border-b border-white/5">
+      <section className={`w-full md:w-[380px] pb-16 md:pb-0 bg-slate-900/30 border-r border-white/5 flex-col ${selectedChatId ? 'hidden md:flex' : 'flex'}`}>
+        <header className="p-4 md:p-6 border-b border-white/5">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-white tracking-tight">
               {currentView === 'messages' ? 'Messages' : 'Contacts'}
@@ -374,14 +375,20 @@ export default function Messages() {
       </section>
 
       {/* 3. Main Chat Area */}
-      <main className="flex-1 flex flex-col relative bg-[radial-gradient(circle_at_50%_0%,rgba(30,41,59,0.5),transparent_70%)]">
+      <main className={`w-full md:flex-1 flex-col relative bg-[radial-gradient(circle_at_50%_0%,rgba(30,41,59,0.5),transparent_70%)] ${selectedChatId ? 'flex' : 'hidden md:flex'}`}>
         
         {/* Header */}
-        <header className="h-[80px] px-8 flex items-center justify-between border-b border-white/5 backdrop-blur-md bg-slate-900/20 z-10">
+        <header className="h-[70px] md:h-[80px] px-4 md:px-8 flex items-center justify-between border-b border-white/5 backdrop-blur-md bg-slate-900/20 z-10">
           {selectedChat ? (
             <>
-              <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20 uppercase">
+              <div className="flex items-center gap-3 md:gap-4">
+                <button 
+                  onClick={() => setSelectedChatId(null)} 
+                  className="md:hidden p-2 -ml-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+                >
+                  <ArrowLeft size={24} />
+                </button>
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20 uppercase">
               {selectedChat.initials}
             </div>
             <div>
