@@ -20,9 +20,11 @@ export const useChat = (chatId: number | null) => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isConnected, setIsConnected] = useState(false);
     const [typingUsers, setTypingUsers] = useState<Record<number, string>>({});
+    const [userStatuses, setUserStatuses] = useState<Record<number, boolean>>({});
     const stompClient = useRef<Client | null>(null);
     const subscriptionRef = useRef<StompSubscription | null>(null);
     const typingSubscriptionRef = useRef<StompSubscription | null>(null);
+    const statusSubscriptionRef = useRef<StompSubscription | null>(null);
 
     const connect = useCallback(() => {
         if (stompClient.current?.active) return;
@@ -67,6 +69,27 @@ export const useChat = (chatId: number | null) => {
         return () => disconnect();
     }, [connect, disconnect]);
 
+    // Effect for global features (Status Updates)
+    useEffect(() => {
+        if (isConnected && stompClient.current) {
+            // Subscribe to global user status updates
+            const statusSub = stompClient.current.subscribe('/topic/users/status', (message: IMessage) => {
+                const userData = JSON.parse(message.body);
+                setUserStatuses((prev) => ({
+                    ...prev,
+                    [userData.id]: userData.is_online
+                }));
+            });
+
+            statusSubscriptionRef.current = statusSub;
+
+            return () => {
+                if (statusSub) statusSub.unsubscribe();
+                statusSubscriptionRef.current = null;
+            };
+        }
+    }, [isConnected]);
+
     useEffect(() => {
         if (isConnected && chatId && stompClient.current) {
 
@@ -93,14 +116,6 @@ export const useChat = (chatId: number | null) => {
                 });
 
                 // Notify only if it's a completely NEW message from someone else.
-                // If it's a completely new message from someone else, we show the toast.
-                // Status updates (like someone reading our message) won't trigger this 
-                // because the senderId will be our own ID in that case, or if it's from 
-                // them, the backend should ideally send READ status initially if they are active,
-                // but realistically we just want to avoid toast spam for status updates.
-                // In reality, if they read our message, it's our message being updated.
-                // If they send us a message, status is SENT.
-                // We'll safely assume SENT status = new message for toast purposes.
                 if (receivedMessage.senderId !== user?.id && receivedMessage.status === 'SENT') {
                     toast.message('New message', {
                         description: `[${receivedMessage.senderName}]: ${receivedMessage.message}`,
@@ -140,7 +155,7 @@ export const useChat = (chatId: number | null) => {
                 if (typingSub) typingSub.unsubscribe();
                 subscriptionRef.current = null;
                 typingSubscriptionRef.current = null;
-                setTypingUsers({}); // Clear typing users on unsubscribe
+                setTypingUsers({});
             };
         }
     }, [isConnected, chatId, user?.id, setMessages]);
@@ -188,6 +203,7 @@ export const useChat = (chatId: number | null) => {
         sendMessage,
         markMessageAsRead,
         typingUsers,
-        sendTypingStatus
+        sendTypingStatus,
+        userStatuses
     };
 };

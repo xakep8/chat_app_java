@@ -70,6 +70,8 @@ public class ChatService {
                                 .lastMessageTime(lastMessageTime)
                                 .initials(initials)
                                 .gradient(gradient)
+                                .otherParticipantId(otherUser.getId())
+                                .otherParticipantOnline(otherUser.isOnline())
                                 .build();
                     } catch (Exception e) {
                         System.err.println("[ChatService] Error processing chat ID " + chat.getId() + ": " + e.getMessage());
@@ -125,6 +127,8 @@ public class ChatService {
                 .lastMessage("Starting conversation...")
                 .initials(initials)
                 .gradient("from-indigo-500 to-purple-600")
+                .otherParticipantId(otherUser.getId())
+                .otherParticipantOnline(otherUser.isOnline())
                 .build();
     }
 }

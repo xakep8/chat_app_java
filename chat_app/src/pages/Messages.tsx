@@ -26,6 +26,8 @@ interface Chat {
   lastMessageTime: string;
   initials: string;
   gradient: string;
+  other_participant_id: number;
+  other_participant_online: boolean;
 }
 
 interface User {
@@ -33,6 +35,7 @@ interface User {
   firstName: string;
   lastName: string;
   email: string;
+  is_online: boolean;
 }
 
 const TickIcon = ({ status }: { status: 'SENT' | 'DELIVERED' | 'READ' }) => {
@@ -76,7 +79,8 @@ export default function Messages() {
     isConnected, 
     markMessageAsRead,
     typingUsers,
-    sendTypingStatus 
+    sendTypingStatus,
+    userStatuses
   } = useChat(selectedChatId);
 
   const typingTimeoutRef = useRef<number | null>(null);
@@ -140,6 +144,11 @@ export default function Messages() {
       setIsLoadingChats(false);
     }
   };
+
+  // Sync statuses from chats and contacts to useChat's internal state via a dummy sub or directly
+  // Actually, useChat manages its own userStatuses. Let's make it more robust.
+  // We'll update useChat to accept initial statuses if needed, or just handle it here.
+  // For now, let's just make sure the UI check uses both the real-time state and the initial state.
 
   const fetchContacts = async () => {
     try {
@@ -352,8 +361,11 @@ export default function Messages() {
                     <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${chat.gradient} flex items-center justify-center font-bold text-white shadow-lg`}>
                       {chat.initials}
                     </div>
-                    {/* Status could be dynamic in the future */}
-                    <Circle className="absolute -bottom-1 -right-1 text-emerald-500 fill-emerald-500 bg-slate-900 rounded-full p-0.5" size={12} />
+                    {(userStatuses[chat.other_participant_id] ?? chat.other_participant_online) ? (
+                      <Circle className="absolute -bottom-1 -right-1 text-emerald-500 fill-emerald-500 bg-slate-900 rounded-full p-0.5" size={12} />
+                    ) : (
+                      <Circle className="absolute -bottom-1 -right-1 text-slate-500 fill-slate-500 bg-slate-900 rounded-full p-0.5" size={12} />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
@@ -385,8 +397,16 @@ export default function Messages() {
                      onClick={() => handleCreateChat(contact.id)}
                      className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all text-left group"
                    >
-                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center font-bold text-white shadow-lg uppercase flex-shrink-0">
-                       {(contact.firstName?.[0] || '') + (contact.lastName?.[0] || '')}
+                     <div className="relative">
+                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center font-bold text-white shadow-lg uppercase flex-shrink-0">
+                         {(contact.firstName?.[0] || '') + (contact.lastName?.[0] || '')}
+                       </div>
+                       <Circle 
+                         className={`absolute -bottom-1 -right-1 rounded-full p-0.5 bg-slate-900 ${
+                           (userStatuses[contact.id] ?? contact.is_online) ? "text-emerald-500 fill-emerald-500" : "text-slate-600 fill-slate-600"
+                         }`} 
+                         size={10} 
+                       />
                      </div>
                      <div className="flex-1 min-w-0">
                        <p className="text-sm font-semibold text-white truncate">{contact.firstName} {contact.lastName}</p>
@@ -435,9 +455,9 @@ export default function Messages() {
             <div>
               <h2 className="text-lg font-bold text-white">{selectedChat.otherParticipantName}</h2>
               <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"}`} />
+                <div className={`w-2 h-2 rounded-full ${(userStatuses[selectedChat.other_participant_id] ?? selectedChat.other_participant_online) ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-slate-500 shadow-[0_0_8px_rgba(148,163,184,0.4)]"}`} />
                 <span className="text-xs text-slate-400 font-medium">
-                  {isConnected ? "Connected" : "Disconnected - reconnecting..."}
+                  {(userStatuses[selectedChat.other_participant_id] ?? selectedChat.other_participant_online) ? "Online" : "Offline"}
                 </span>
               </div>
             </div>

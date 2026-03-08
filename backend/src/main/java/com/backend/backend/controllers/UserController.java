@@ -38,6 +38,7 @@ public class UserController {
                         .firstName(user.getFirstName())
                         .lastName(user.getLastName())
                         .email(user.getEmail())
+                        .isOnline(user.isOnline())
                         .build())
                 .collect(Collectors.toList());
 

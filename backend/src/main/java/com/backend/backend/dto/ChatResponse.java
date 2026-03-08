@@ -1,5 +1,6 @@
 package com.backend.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,4 +17,9 @@ public class ChatResponse {
     private String lastMessageTime;
     private String initials;
     private String gradient;
+    @JsonProperty("other_participant_id")
+    private Long otherParticipantId;
+
+    @JsonProperty("other_participant_online")
+    private boolean otherParticipantOnline;
 }
