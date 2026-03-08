@@ -19,8 +19,10 @@ export const useChat = (chatId: number | null) => {
     const { accessToken, user } = useAuthStore();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isConnected, setIsConnected] = useState(false);
+    const [typingUsers, setTypingUsers] = useState<Record<number, string>>({});
     const stompClient = useRef<Client | null>(null);
     const subscriptionRef = useRef<StompSubscription | null>(null);
+    const typingSubscriptionRef = useRef<StompSubscription | null>(null);
 
     const connect = useCallback(() => {
         if (stompClient.current?.active) return;
@@ -36,12 +38,10 @@ export const useChat = (chatId: number | null) => {
         });
 
         client.onConnect = () => {
-            console.log('STOMP: Connected');
             setIsConnected(true);
         };
 
         client.onDisconnect = () => {
-            console.log('STOMP: Disconnected');
             setIsConnected(false);
         };
 
@@ -67,10 +67,8 @@ export const useChat = (chatId: number | null) => {
         return () => disconnect();
     }, [connect, disconnect]);
 
-    // Effect for chat-specific subscription
     useEffect(() => {
         if (isConnected && chatId && stompClient.current) {
-            console.log(`STOMP: Subscribing to /topic/chat/${chatId}`);
 
             // NOTE: We don't clear messages here anymore. 
             // Messages.tsx handles the initial fetch and clearing when chat changes.
@@ -78,7 +76,6 @@ export const useChat = (chatId: number | null) => {
 
             const sub = stompClient.current.subscribe(`/topic/chat/${chatId}`, (message: IMessage) => {
                 const receivedMessage: ChatMessage = JSON.parse(message.body);
-                console.log('%cSTOMP: Message RECEIVED:', 'color: #00ff00; font-weight: bold', receivedMessage);
 
                 setMessages((prev) => {
                     const existingMsgIndex = prev.findIndex(m => m.id === receivedMessage.id);
@@ -86,15 +83,12 @@ export const useChat = (chatId: number | null) => {
                         // Message exists. Update it if status changed (e.g. to READ)
                         const existingMsg = prev[existingMsgIndex];
                         if (existingMsg.status !== receivedMessage.status) {
-                            console.log(`STOMP: Updating message ${receivedMessage.id} status to ${receivedMessage.status}`);
                             const newMessages = [...prev];
                             newMessages[existingMsgIndex] = receivedMessage;
                             return newMessages;
                         }
-                        console.log('STOMP: Ignored duplicate message:', receivedMessage.id);
                         return prev;
                     }
-                    console.log('STOMP: Adding new message to state');
                     return [...prev, receivedMessage];
                 });
 
@@ -116,17 +110,43 @@ export const useChat = (chatId: number | null) => {
             });
 
             subscriptionRef.current = sub;
+
+            // Subscribe to typing indicators
+            const typingSub = stompClient.current.subscribe(`/topic/chat/${chatId}/typing`, (message: IMessage) => {
+                const typingData = JSON.parse(message.body);
+
+                const senderId = typingData.user_id !== undefined ? typingData.user_id : typingData.userId;
+                if (senderId === user?.id) return;
+
+                setTypingUsers((prev) => {
+                    const newTypingUsers = { ...prev };
+                    const isTypingActive = typingData.is_typing !== undefined ? typingData.is_typing : (typingData.isTyping !== undefined ? typingData.isTyping : typingData.typing);
+                    const senderUserId = typingData.user_id !== undefined ? typingData.user_id : typingData.userId;
+                    const senderUserName = typingData.user_name !== undefined ? typingData.user_name : typingData.userName;
+
+                    if (isTypingActive && senderUserId) {
+                        newTypingUsers[senderUserId] = senderUserName;
+                    } else if (senderUserId) {
+                        delete newTypingUsers[senderUserId];
+                    }
+                    return newTypingUsers;
+                });
+            });
+
+            typingSubscriptionRef.current = typingSub;
+
             return () => {
-                console.log(`STOMP: Unsubscribing from /topic/chat/${chatId}`);
                 if (sub) sub.unsubscribe();
+                if (typingSub) typingSub.unsubscribe();
                 subscriptionRef.current = null;
+                typingSubscriptionRef.current = null;
+                setTypingUsers({}); // Clear typing users on unsubscribe
             };
         }
     }, [isConnected, chatId, user?.id, setMessages]);
 
     const sendMessage = (content: string) => {
         if (stompClient.current && isConnected && chatId) {
-            console.log(`[useChat] Publishing message to chat ${chatId}:`, content);
             stompClient.current.publish({
                 destination: '/app/chat.sendMessage',
                 body: JSON.stringify({
@@ -134,18 +154,11 @@ export const useChat = (chatId: number | null) => {
                     message: content,
                 }),
             });
-        } else {
-            console.warn('[useChat] Cannot send message: client not connected or no chatId', {
-                isConnected,
-                chatId,
-                clientActive: stompClient.current?.active
-            });
         }
     };
 
     const markMessageAsRead = (messageId: number) => {
         if (stompClient.current && isConnected && chatId) {
-            console.log(`[useChat] Marking message ${messageId} as READ`);
             stompClient.current.publish({
                 destination: '/app/chat.updateStatus',
                 body: JSON.stringify({
@@ -156,5 +169,25 @@ export const useChat = (chatId: number | null) => {
         }
     };
 
-    return { messages, setMessages, isConnected, sendMessage, markMessageAsRead };
+    const sendTypingStatus = (isTyping: boolean) => {
+        if (stompClient.current && isConnected && chatId) {
+            stompClient.current.publish({
+                destination: '/app/chat.typing',
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    is_typing: isTyping,
+                }),
+            });
+        }
+    };
+
+    return {
+        messages,
+        setMessages,
+        isConnected,
+        sendMessage,
+        markMessageAsRead,
+        typingUsers,
+        sendTypingStatus
+    };
 };

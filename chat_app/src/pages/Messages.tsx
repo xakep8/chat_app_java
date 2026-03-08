@@ -69,9 +69,19 @@ export default function Messages() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { messages, setMessages, sendMessage, isConnected, markMessageAsRead } = useChat(selectedChatId);
+  const { 
+    messages, 
+    setMessages, 
+    sendMessage, 
+    isConnected, 
+    markMessageAsRead,
+    typingUsers,
+    sendTypingStatus 
+  } = useChat(selectedChatId);
 
-  console.log('[Messages] Render state:', { selectedChatId, isConnected, messageCount: messages.length });
+  const typingTimeoutRef = useRef<number | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
+
 
   const selectedChat = Array.isArray(chats) ? chats.find(c => c.id === selectedChatId) : undefined;
 
@@ -149,12 +159,10 @@ export default function Messages() {
 
   const fetchMessages = async (chatId: number) => {
     try {
-      console.log(`[Messages] Fetching messages for chatId: ${chatId}`);
       setIsLoadingMessages(true);
       setMessages([]); // Clear immediately when starting fetch
       const response = await api.get(`/messages/${chatId}`);
       const data = Array.isArray(response.data) ? response.data : [];
-      console.log(`[Messages] Fetched ${data.length} messages`);
       setMessages(data);
     } catch (error) {
       console.error('Failed to fetch messages:', error);
@@ -178,13 +186,46 @@ export default function Messages() {
     e.preventDefault();
     
     if (messageText.trim() === "" || !isConnected) {
-      console.log('Cannot send message: text empty or disconnected', { text: messageText, isConnected });
       return;
     }
 
-    console.log('Sending message via STOMP:', { chatId: selectedChatId, text: messageText });
+    // Stop typing indicator immediately when message is sent
+    if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+    }
+    stopTyping();
+
     sendMessage(messageText);
     setMessageText("");
+  };
+
+  const startTyping = () => {
+    if (!isTyping) {
+        setIsTyping(true);
+        sendTypingStatus(true);
+    }
+
+    if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+        stopTyping();
+    }, 3000); // Stop typing after 3 seconds of inactivity
+  };
+
+  const stopTyping = () => {
+    if (isTyping) {
+        setIsTyping(false);
+        sendTypingStatus(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMessageText(e.target.value);
+    if (isConnected && selectedChatId) {
+        startTyping();
+    }
   };
 
   const handleCreateChat = async (receiverId: number) => {
@@ -476,6 +517,24 @@ export default function Messages() {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Typing Indicator */}
+        <div className="px-8 py-2 min-h-[32px]">
+            {Object.keys(typingUsers).length > 0 && (
+                <div className="flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex gap-1.5 px-3 py-2 bg-slate-800/50 border border-white/5 rounded-2xl rounded-bl-none">
+                        <span className="text-[10px] text-slate-400 font-medium">
+                            {Object.values(typingUsers).join(', ')} {Object.keys(typingUsers).length === 1 ? 'is' : 'are'} typing
+                        </span>
+                        <div className="flex gap-1 items-center ml-1">
+                            <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                            <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                            <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce"></span>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+
         {/* Input Bar */}
         <footer className="p-6 pt-0 bg-transparent">
           <form 
@@ -488,7 +547,7 @@ export default function Messages() {
             <input 
               type="text" 
               value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
+              onChange={handleInputChange}
               placeholder={isConnected ? "Type your message here..." : "Connecting..."} 
               disabled={!isConnected || !selectedChatId}
               className="flex-1 bg-transparent border-none py-3 outline-none text-sm text-slate-100 placeholder:text-slate-500 disabled:opacity-50"

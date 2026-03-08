@@ -1,8 +1,6 @@
 package com.backend.backend.controllers;
 
-import com.backend.backend.dto.MessageResponse;
-import com.backend.backend.dto.SendMessageRequest;
-import com.backend.backend.dto.UpdateStatusRequest;
+import com.backend.backend.dto.*;
 import com.backend.backend.entities.User;
 import com.backend.backend.services.MessageService;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +49,18 @@ public class MessageController {
         User user = (User) ((UsernamePasswordAuthenticationToken) principal).getPrincipal();
         MessageResponse response = messageService.updateMessageStatus(request, user.getId());
         messagingTemplate.convertAndSend("/topic/chat/" + response.getChatId(), response);
+    }
+
+    @MessageMapping("/chat.typing")
+    public void handleTyping(@Payload TypingRequest request, Principal principal){
+        User user = (User) ((UsernamePasswordAuthenticationToken) principal).getPrincipal();
+        TypingResponse response = TypingResponse.builder()
+                .chatId(request.getChatId())
+                .userId(user.getId())
+                .userName(user.getFirstName())
+                .isTyping(request.getIsTyping())
+                .build();
+        messagingTemplate.convertAndSend("/topic/chat/" + request.getChatId() + "/typing", response);
     }
 
     @GetMapping("/{chatId}")
